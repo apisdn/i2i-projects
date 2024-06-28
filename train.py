@@ -5,29 +5,34 @@ from dataset import ImageDataset
 from model import Unet
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import pickle as pkl
 
 losses = []
 val_losses = []
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "cpu" #"cuda" if torch.cuda.is_available() else "cpu"
+print("Using device: ", device)
 
 def train(img_dataloader, model, opt, loss_fn, scaler):
-    
     loop = tqdm(img_dataloader, leave=True)
     for idx, (x, y) in enumerate(loop):
+        #print(idx, x.shape, y.shape)
         x = x.to(device)
         y = y.to(device)
 
+        preds = model(x)
+        loss = loss_fn(preds, y)
+        
         '''
         if len(y.shape) < 4:
             y = y.unsqueeze(1)  # add channel dimension
 
         if len(x.shape) < 4:
             x = x.unsqueeze(1)  # add channel dimension
-        '''
 
-        with torch.cuda.amp.autocast():
+        with torch.autocast(device_type=device):
             preds = model(x)
             loss = loss_fn(preds, y)
+        '''
 
         opt.zero_grad()
         scaler.scale(loss).backward()
@@ -49,7 +54,7 @@ def main(predict_only=False):
 
     model = Unet(in_channels=in_chan, out_channels=out_chan).to(device)
     opt = optim.Adam(model.parameters(), lr=learning_rate)
-    scaler = torch.cuda.amp.GradScaler()
+    scaler = torch.GradScaler(device)#torch.cuda.amp.GradScaler()
 
     ds = ImageDataset("real_rgb/rgb/*", "real_rgb/tir/*")
     training_set, validation_set = torch.utils.data.random_split(ds, [int(len(ds) * 0.8), len(ds) - int(len(ds) * 0.8)])
@@ -69,19 +74,22 @@ def main(predict_only=False):
         torch.save(model.state_dict(), f"model_{epoch}.pth")
         print("Model saved")
 
-        print("Validation")
-        model.eval()
-        with torch.no_grad():
-            for x, y in val_loader:
-                x = x.to(device)
-                y = y.to(device)
+    print("Validation")
+    model.eval()
+    with torch.no_grad():
+        for x, y in val_loader:
+            x = x.to(device)
+            y = y.to(device)
 
-                preds = model(x)
-                loss = loss_fn(preds, y)
-                val_losses.append(loss.item())
+            preds = model(x)
+            loss = loss_fn(preds, y)
+            val_losses.append(loss.item())
 
     print("Training complete")
     print("Mean validation loss: ", sum(val_losses) / len(val_losses))
+
+    pkl.dump(train_loader, open("train_loader.pkl", "wb"))
+    pkl.dump(val_loader, open("val_loader.pkl", "wb"))
 
 if __name__ == "__main__":
     main(predict_only=False)

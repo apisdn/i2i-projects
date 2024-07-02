@@ -14,7 +14,7 @@ print("Using device: ", device)
 
 def train(img_dataloader, model, opt, loss_fn, scaler):
     loop = tqdm(img_dataloader, leave=True)
-    for idx, (x, y) in enumerate(loop):
+    for idx, (x, y, imgidx) in enumerate(loop):
         #print(idx, x.shape, y.shape)
         x = x.to(device)
         y = y.to(device)

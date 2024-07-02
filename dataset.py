@@ -46,11 +46,11 @@ class ImageDataset(Dataset):
             #target_tensor = torch.from_numpy(np.array(target_tensor).astype(np.float32) / 255.0)
             target_tensor = TF.to_tensor(target_tensor)
 
-        # For plotting purposes
+        # For plotting purposes (nonfunctional, as it uses mem locs as ids and these aren't necessarily the same as the ones in the file, idk why)
         self._filenames[id(input_tensor)] = self.images[idx]
         self._filenames[id(target_tensor)] = self.targets[idx]
 
-        return input_tensor, target_tensor
+        return input_tensor, target_tensor, idx
 
-    def get_filenames(self, tensor, default=None):
-        return self._filenames.get(id(tensor), default)
+    def get_filenames(self, idx, default=None):
+        return self.images[idx]

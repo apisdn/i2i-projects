@@ -3,6 +3,7 @@ import pickle as pkl
 from PIL import Image
 from model import Unet
 import os
+import wandb
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -27,8 +28,16 @@ def infer(img_dataloader, model):
             filename = filename.split("_")[0]
 
             Image.fromarray(pred).save(os.path.join("predictions", filename + "_fake.png"))
+            wandb.log({"Validation Predictions": wandb.Image(os.path.join("predictions", filename + "_fake.png"))})
+
 
 def main(modelpth, data, foldermode):
+    RUN_NAME = "test1_infer"
+
+    run = wandb.init(project="unet-translation-test",
+                     job_type="test",
+                     notes="Testing a UNet model for image-to-image translation")
+
     if foldermode:
         print("unimplemented")
         return

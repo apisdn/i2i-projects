@@ -6,6 +6,8 @@ from model import Unet
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import pickle as pkl
+import wandb
+import numpy as np
 
 losses = []
 val_losses = []
@@ -33,22 +35,31 @@ def train(img_dataloader, model, opt, loss_fn, scaler):
         loop.set_postfix(loss=loss.item())
         losses.append(loss.item())
 
+        wandb.log({"Loss": loss.item()})
+
 """
 This main takes in a predict_only parameter, which is currently unimplemented
 predict_only: bool, whether to only run the inference part of the code <<unimplemented>>
 """
 def main(predict_only=False):
+    RUN_NAME = "test2"
+
     # parameters
     in_chan = 3
     out_chan = 3
     learning_rate = 1e-4
-    batch_size = 1
-    num_epochs = 100
+    batch_size = 20
+    num_epochs = 2
     loss_fn = nn.CrossEntropyLoss()
+
+    run = wandb.init(project="unet-translation-test",
+                     job_type="train",
+                     config={"learning_rate": learning_rate, "batch_size": batch_size, "num_epochs": num_epochs},
+                     notes="Training a UNet model for image-to-image translation")
 
     model = Unet(in_channels=in_chan, out_channels=out_chan).to(device)
     opt = optim.Adam(model.parameters(), lr=learning_rate)
-    scaler = torch.GradScaler(device)#torch.cuda.amp.GradScaler()
+    scaler = torch.GradScaler(device)
 
     ds = ImageDataset("real_rgb/rgb/*", "real_rgb/tir/*")
     training_set, validation_set = torch.utils.data.random_split(ds, [int(len(ds) * 0.8), len(ds) - int(len(ds) * 0.8)])
@@ -65,13 +76,17 @@ def main(predict_only=False):
     for epoch in range(num_epochs):
         print(f"Epoch {epoch+1}")
         train(train_loader, model, opt, nn.MSELoss(), scaler)
-        torch.save(model.state_dict(), f"model_{epoch}.pth")
-        print("Model saved")
+        if epoch+1 % 10 == 0:
+            torch.save(model.state_dict(), f"model_{epoch}.pth")
+        torch.save(model.state_dict(), "model_current.pth")
+        
+    run.log_model("model_current.pth", name=RUN_NAME)
+    run.save("model_current.pth")
 
     print("Validation")
     model.eval()
     with torch.no_grad():
-        for x, y in val_loader:
+        for x, y, idx in val_loader:
             x = x.to(device)
             y = y.to(device)
 
@@ -79,11 +94,21 @@ def main(predict_only=False):
             loss = loss_fn(preds, y)
             val_losses.append(loss.item())
 
+    #hist = np.histogram(val_losses)
+    #wandb.log({"validation loss histogram": wandb.Histogram(np_histogram=hist)})
+    table = wandb.Table(data=val_losses)
+    wandb.log({"Validation Losses": wandb.plot.histogram(table, "val_losses", title="Validation Losses")})
+
+    wandb.define_metric("Mean Validation Loss", summary="mean")
+    wandb.log({"Mean Validation Loss": sum(val_losses) / len(val_losses)})
+
     print("Training complete")
     print("Mean validation loss: ", sum(val_losses) / len(val_losses))
 
     pkl.dump(train_loader, open("train_loader.pkl", "wb"))
     pkl.dump(val_loader, open("val_loader.pkl", "wb"))
+    run.save("train_loader.pkl")
+    run.save("val_loader.pkl")
 
 if __name__ == "__main__":
     main(predict_only=False)

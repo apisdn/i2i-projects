@@ -1,12 +1,9 @@
-import os
-import random
-import numpy as np
 import torch
-from skimage.io import imread
 from torch.utils.data import Dataset
 from glob import glob
 from PIL import Image
 import torchvision.transforms.functional as TF
+
 
 class ImageDataset(Dataset):
     """dataset class for image data"""
@@ -17,10 +14,6 @@ class ImageDataset(Dataset):
         self.input_globbing_pattern = input_globbing_pattern
         self.target_globbing_pattern = target_globbing_pattern
         self.transform = transform
-
-        # Store the paths to the images
-        self._defaults = None
-        self._filenames = {}
         
         self.images = sorted(glob(input_globbing_pattern, recursive=True))
         self.targets = sorted(glob(target_globbing_pattern, recursive=True))
@@ -45,10 +38,6 @@ class ImageDataset(Dataset):
         if not isinstance(target_tensor, torch.Tensor):
             #target_tensor = torch.from_numpy(np.array(target_tensor).astype(np.float32) / 255.0)
             target_tensor = TF.to_tensor(target_tensor)
-
-        # For plotting purposes (nonfunctional, as it uses mem locs as ids and these aren't necessarily the same as the ones in the file, idk why)
-        self._filenames[id(input_tensor)] = self.images[idx]
-        self._filenames[id(target_tensor)] = self.targets[idx]
 
         return input_tensor, target_tensor, idx
 

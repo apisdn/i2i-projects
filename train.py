@@ -9,7 +9,7 @@ import pickle as pkl
 
 losses = []
 val_losses = []
-device = "cpu" #"cuda" if torch.cuda.is_available() else "cpu"
+device = "cuda" if torch.cuda.is_available() else "cpu"
 print("Using device: ", device)
 
 def train(img_dataloader, model, opt, loss_fn, scaler):
@@ -21,18 +21,6 @@ def train(img_dataloader, model, opt, loss_fn, scaler):
 
         preds = model(x)
         loss = loss_fn(preds, y)
-        
-        '''
-        if len(y.shape) < 4:
-            y = y.unsqueeze(1)  # add channel dimension
-
-        if len(x.shape) < 4:
-            x = x.unsqueeze(1)  # add channel dimension
-
-        with torch.autocast(device_type=device):
-            preds = model(x)
-            loss = loss_fn(preds, y)
-        '''
 
         opt.zero_grad()
         scaler.scale(loss).backward()
@@ -49,7 +37,7 @@ def main(predict_only=False):
     out_chan = 3
     learning_rate = 1e-4
     batch_size = 1
-    num_epochs = 10
+    num_epochs = 100
     loss_fn = nn.CrossEntropyLoss()
 
     model = Unet(in_channels=in_chan, out_channels=out_chan).to(device)

@@ -6,6 +6,9 @@ import os
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+"""
+Inference function for the model
+"""
 def infer(img_dataloader, model):
     model.eval()
     with torch.no_grad():

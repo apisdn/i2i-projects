@@ -12,6 +12,9 @@ val_losses = []
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print("Using device: ", device)
 
+"""
+Training function for the model
+"""
 def train(img_dataloader, model, opt, loss_fn, scaler):
     loop = tqdm(img_dataloader, leave=True)
     for idx, (x, y, imgidx) in enumerate(loop):
@@ -30,7 +33,10 @@ def train(img_dataloader, model, opt, loss_fn, scaler):
         loop.set_postfix(loss=loss.item())
         losses.append(loss.item())
 
-
+"""
+This main takes in a predict_only parameter, which is currently unimplemented
+predict_only: bool, whether to only run the inference part of the code <<unimplemented>>
+"""
 def main(predict_only=False):
     # parameters
     in_chan = 3

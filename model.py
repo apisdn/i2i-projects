@@ -2,6 +2,16 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+"""
+UNet model for image segmentation
+
+The model consists of a downward path and an upward path. 
+The downward path consists of a series of convolutions and pooling layers that reduce the spatial dimensions of the input image. 
+The upward path consists of a series of transposed convolutions and concatenations with the skip connections from the downward path.
+
+For more information and references to use cases, refer to:
+https://paperswithcode.com/method/u-net
+"""
 class Unet(nn.Module):
     def __init__(self, in_channels=3, out_channels=1, features=[64, 128, 256, 512]):
         super(Unet, self).__init__()
@@ -61,6 +71,6 @@ class Unet(nn.Module):
 # Example of using the UNet model
 if __name__ == "__main__":
     model = Unet()
-    x = torch.randn(1, 3, 572, 572)  # Example input size
+    x = torch.randn(1, 3, 128, 256)  # Example input size
     out = model(x)
     print(out.shape)  # Expected output size

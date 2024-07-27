@@ -4,6 +4,7 @@ from PIL import Image
 from model import Unet
 import os
 import wandb
+from torch.utils.data import DataLoader
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -19,6 +20,7 @@ def infer(img_dataloader, model):
             pred = model(x)
 
             datas = img_dataloader.dataset
+
             filename = datas.dataset.get_filenames(imgidx)
 
             pred = pred.squeeze(0).permute(1, 2, 0).cpu().numpy()
@@ -43,6 +45,10 @@ def main(modelpth, data, foldermode):
         return
     else:
         val_loader = pkl.load(open(data, "rb"))
+
+        # remove these two lines after current testing, bug that caused them to be needed is fixed
+        #dataset = val_loader.dataset
+        #val_loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
     model = Unet(in_channels=3, out_channels=3).to(device)
     model.load_state_dict(torch.load(modelpth))

@@ -1,13 +1,15 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from dataset import ImageDataset
+from dataset import ImageDataset3to1
 from model import Unet
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import pickle as pkl
 import wandb
 import numpy as np
+import os
+from PIL import Image
 
 losses = []
 val_losses = []
@@ -38,21 +40,45 @@ def train(img_dataloader, model, opt, loss_fn, scaler):
         wandb.log({"Loss": loss.item()})
 
 """
+Inference function for the model
+"""
+def infer(img_dataloader, model):
+    model.eval()
+    with torch.no_grad():
+        for x,y,imgidx in img_dataloader:
+            x = x.to(device)
+
+            pred = model(x)
+
+            datas = img_dataloader.dataset
+
+            filename = datas.dataset.get_filenames(imgidx)
+
+            pred = pred.squeeze(0).permute(1, 2, 0).cpu().numpy()
+            pred = (pred * 255).astype("uint8")
+
+            filename = os.path.basename(filename)
+            filename = filename.split("_")[0]
+
+            Image.fromarray(pred).save(os.path.join("predictions3to1", filename + "_fake.png"))
+            wandb.log({"Validation Predictions": wandb.Image(os.path.join("predictions3to1", filename + "_fake.png"))})
+
+"""
 This main takes in a predict_only parameter, which is currently unimplemented
 predict_only: bool, whether to only run the inference part of the code <<unimplemented>>
 """
 def main(predict_only=False):
-    RUN_NAME = "test2"
+    RUN_NAME = "experiment3to1"
 
     # parameters
     in_chan = 3
     out_chan = 3
     learning_rate = 1e-4#1e-4
     batch_size = 5
-    num_epochs = 5
+    num_epochs = 100
     loss_fn = nn.CrossEntropyLoss()
 
-    run = wandb.init(project="unet-translation-test",
+    run = wandb.init(project="unet-translation-3to1",
                      job_type="train",
                      config={"learning_rate": learning_rate, "batch_size": batch_size, "num_epochs": num_epochs},
                      notes="Training a UNet model for image-to-image translation")
@@ -61,8 +87,8 @@ def main(predict_only=False):
     opt = optim.Adam(model.parameters(), lr=learning_rate)
     scaler = torch.GradScaler(device)
 
-    ds = ImageDataset("real_rgb/rgb/*", "real_rgb/tir/*")
-    training_set, validation_set = torch.utils.data.random_split(ds, [int(len(ds) * 0.8), len(ds) - int(len(ds) * 0.8)])
+    ds = ImageDataset3to1(os.path.join("gainrangedataset","tir"), os.path.join("gainrangedataset","rgb","*"))
+    training_set, validation_set = torch.utils.data.random_split(ds, [int(len(ds) * 0.7), len(ds) - int(len(ds) * 0.7)])
 
     train_loader = DataLoader(training_set, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(validation_set, batch_size=1, shuffle=False)
@@ -77,10 +103,10 @@ def main(predict_only=False):
         print(f"Epoch {epoch+1}")
         train(train_loader, model, opt, nn.MSELoss(), scaler)
         if epoch+1 % 10 == 0:
-            torch.save(model.state_dict(), f"model_{epoch}.pth")
-        torch.save(model.state_dict(), "model_current.pth")
+            torch.save(model.state_dict(), f"3to1model_{epoch}.pth")
+        torch.save(model.state_dict(), "model3to1_current.pth")
         
-    run.log_model("model_current.pth", name=RUN_NAME)
+    run.log_model("model3to1_current.pth", name=RUN_NAME)
 
     print("Validation")
     model.eval()
@@ -103,6 +129,12 @@ def main(predict_only=False):
     pkl.dump(val_loader, open("val_loader.pkl", "wb"))
     run.save("train_loader.pkl")
     run.save("val_loader.pkl")
+
+    # and now for the validation set
+    os.makedirs("predictions3to1", exist_ok=True)
+
+    infer(val_loader, model)
+
 
 if __name__ == "__main__":
     main(predict_only=False)

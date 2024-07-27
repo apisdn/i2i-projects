@@ -3,6 +3,6 @@ __pycache__/*
 *.pth
 *.ini
 *.pkl
-predictions/*
+predictions*/*
 wandb/*
 gainrangedataset/*

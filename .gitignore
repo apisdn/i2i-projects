@@ -6,3 +6,5 @@ __pycache__/*
 predictions*/*
 wandb/*
 gainrangedataset/*
+unet3to1/*
+unet1to1/*

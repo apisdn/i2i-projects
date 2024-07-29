@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from dataset import ImageDataset3to1
+from dataset import ImageDataset3to1, ImageDataset
 from model import Unet
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -58,10 +58,11 @@ def infer(img_dataloader, model):
             pred = (pred * 255).astype("uint8")
 
             filename = os.path.basename(filename)
+            filename = filename.split(".")[0]
             filename = filename.split("_")[0]
 
-            Image.fromarray(pred).save(os.path.join("predictions3to1", filename + "_fake.png"))
-            wandb.log({"Validation Predictions": wandb.Image(os.path.join("predictions3to1", filename + "_fake.png"))})
+            Image.fromarray(pred).save(os.path.join("predictions1to1", filename + "_fake.png"))
+            wandb.log({"Validation Predictions": wandb.Image(os.path.join("predictions1to1", filename + "_fake.png"))})
 
 """
 This main takes in a predict_only parameter, which is currently unimplemented
@@ -75,7 +76,7 @@ def main(predict_only=False):
     out_chan = 3
     learning_rate = 1e-4#1e-4
     batch_size = 5
-    num_epochs = 100
+    num_epochs = 200
     loss_fn = nn.CrossEntropyLoss()
 
     run = wandb.init(project="unet-translation-3to1",
@@ -87,7 +88,8 @@ def main(predict_only=False):
     opt = optim.Adam(model.parameters(), lr=learning_rate)
     scaler = torch.GradScaler(device)
 
-    ds = ImageDataset3to1(os.path.join("gainrangedataset","tir"), os.path.join("gainrangedataset","rgb","*"))
+    #ds = ImageDataset3to1(os.path.join("gainrangedataset","tir"), os.path.join("gainrangedataset","rgb","*"))
+    ds = ImageDataset(os.path.join("gainrangedataset","tir", "*_1.png"), os.path.join("gainrangedataset","rgb","*"))
     training_set, validation_set = torch.utils.data.random_split(ds, [int(len(ds) * 0.7), len(ds) - int(len(ds) * 0.7)])
 
     train_loader = DataLoader(training_set, batch_size=batch_size, shuffle=True)
@@ -131,7 +133,7 @@ def main(predict_only=False):
     run.save("val_loader.pkl")
 
     # and now for the validation set
-    os.makedirs("predictions3to1", exist_ok=True)
+    os.makedirs("predictions1to1", exist_ok=True)
 
     infer(val_loader, model)
 

@@ -39,7 +39,6 @@ class ImageDataset(Dataset):
     Returns the input and target tensors for the given index, as well as the index of the image in the dataset
     """
     def __getitem__(self, idx) -> tuple:
-        print(idx)
         input_tensor = Image.open(self.images[idx]).convert("RGB" if self.in_channels == 3 else "L")
         target_tensor = Image.open(self.targets[idx]).convert("RGB" if self.out_channels == 3 else "L")
 
@@ -62,7 +61,6 @@ class ImageDataset(Dataset):
     Returns the filename of the image at the given index
     """
     def get_filenames(self, idx, default=None) -> str:
-        print(idx)
         return self.images[idx]
     
 """

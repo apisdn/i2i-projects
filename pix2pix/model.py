@@ -1,22 +1,24 @@
 import torch
 import torch.nn as nn
-from . import networks
+import networks
 from torch.optim import lr_scheduler
 from collections import OrderedDict
 
 class Pix2Pix():
     def __init__(self, in_channels, out_channels, isTrain=True, gan_mode='lsgan', device='cuda', lr=0.0002):
         self.loss_names = ['G_GAN', 'G_L1', 'D_real', 'D_fake']
+        self.isTrain = isTrain
+        self.device = device
 
         if self.isTrain:
             self.model_names = ['G', 'D']
         else:
             self.model_names = ['G']
 
-        self.netG = networks.Unet(in_channels, out_channels)
+        self.netG = networks.Unet(in_channels, out_channels).to(self.device)
 
         if self.isTrain:
-            self.netD = networks.PatchGAN(in_channels + out_channels, ndf=64, n_layers=3, norm_layer=nn.InstanceNorm2d)
+            self.netD = networks.PatchGAN(in_channels + out_channels, ndf=64, n_layers=3, norm_layer=nn.InstanceNorm2d).to(self.device)
 
         if self.isTrain:
             self.criterionGAN = networks.GANLoss(gan_mode).to(device)
@@ -30,7 +32,7 @@ class Pix2Pix():
             self.schedulers = [lr_scheduler.StepLR(self.optimizer_G, step_size=50, gamma=0.1), lr_scheduler.StepLR(self.optimizer_D, step_size=100, gamma=0.1)]
         if not self.isTrain:
             for name in self.model_names:
-                load_filename = 'model_current_%s.pth' (name)
+                load_filename = 'model_current_' + name + '.pth'
                 net = getattr(self, 'net' + name)
                 if isinstance(net, torch.nn.DataParallel):
                     net = net.module
@@ -96,7 +98,7 @@ class Pix2Pix():
         """
         with torch.no_grad():
             self.forward()
-            self.compute_visuals()
+            #self.compute_visuals()
 
     def update_learning_rate(self):
         """Update learning rates for all the networks; called at the end of every epoch"""
@@ -123,14 +125,10 @@ class Pix2Pix():
         """
         for name in self.model_names:
             if isinstance(name, str):
-                save_path = 'model_current_%s.pth' (name)
+                save_path = 'model_current_' + name + '.pth'
                 net = getattr(self, 'net' + name)
 
-                if len(self.gpu_ids) > 0 and torch.cuda.is_available():
-                    torch.save(net.module.cpu().state_dict(), save_path)
-                    net.cuda(self.gpu_ids[0])
-                else:
-                    torch.save(net.cpu().state_dict(), save_path)
+                torch.save(net.cpu().state_dict(), save_path)
 
 
     def set_requires_grad(self, nets, requires_grad=False):

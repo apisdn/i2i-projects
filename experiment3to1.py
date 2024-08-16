@@ -11,6 +11,12 @@ import numpy as np
 import os
 from PIL import Image
 
+SAVE_DIR = "predictions3to1"
+os.makedirs(SAVE_DIR, exist_ok=True)
+NUM_INPUTS = 3
+MODEL_NAME = "model3to1.pth"
+RUN_NAME = "experiment3to1"
+
 losses = []
 val_losses = []
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -61,16 +67,14 @@ def infer(img_dataloader, model):
             filename = filename.split(".")[0]
             filename = filename.split("_")[0]
 
-            Image.fromarray(pred).save(os.path.join("predictions1to1", filename + "_fake.png"))
-            wandb.log({"Validation Predictions": wandb.Image(os.path.join("predictions1to1", filename + "_fake.png"))})
+            Image.fromarray(pred).save(os.path.join(SAVE_DIR, filename + "_fake.png"))
+            wandb.log({"Validation Predictions": wandb.Image(os.path.join(SAVE_DIR, filename + "_fake.png"), caption=filename)})
 
 """
 This main takes in a predict_only parameter, which is currently unimplemented
 predict_only: bool, whether to only run the inference part of the code <<unimplemented>>
 """
 def main(predict_only=False):
-    RUN_NAME = "experiment3to1"
-
     # parameters
     in_chan = 3
     out_chan = 3
@@ -88,8 +92,11 @@ def main(predict_only=False):
     opt = optim.Adam(model.parameters(), lr=learning_rate)
     scaler = torch.GradScaler(device)
 
-    #ds = ImageDataset3to1(os.path.join("gainrangedataset","tir"), os.path.join("gainrangedataset","rgb","*"))
-    ds = ImageDataset(os.path.join("gainrangedataset","tir", "*_1.png"), os.path.join("gainrangedataset","rgb","*"))
+    if NUM_INPUTS == 3:
+        ds = ImageDataset3to1(os.path.join("gainrangedataset","tir"), os.path.join("gainrangedataset","rgb","*"))
+    else:
+        ds = ImageDataset(os.path.join("gainrangedataset","tir", "*_1.png"), os.path.join("gainrangedataset","rgb","*"))
+    
     training_set, validation_set = torch.utils.data.random_split(ds, [int(len(ds) * 0.7), len(ds) - int(len(ds) * 0.7)])
 
     train_loader = DataLoader(training_set, batch_size=batch_size, shuffle=True)
@@ -104,11 +111,9 @@ def main(predict_only=False):
     for epoch in range(num_epochs):
         print(f"Epoch {epoch+1}")
         train(train_loader, model, opt, nn.MSELoss(), scaler)
-        if epoch+1 % 10 == 0:
-            torch.save(model.state_dict(), f"3to1model_{epoch}.pth")
-        torch.save(model.state_dict(), "model3to1_current.pth")
+        torch.save(model.state_dict(), MODEL_NAME)
         
-    run.log_model("model3to1_current.pth", name=RUN_NAME)
+    run.log_model(MODEL_NAME, name=RUN_NAME)
 
     print("Validation")
     model.eval()
@@ -133,7 +138,6 @@ def main(predict_only=False):
     run.save("val_loader.pkl")
 
     # and now for the validation set
-    os.makedirs("predictions1to1", exist_ok=True)
 
     infer(val_loader, model)
 

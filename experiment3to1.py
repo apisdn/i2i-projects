@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from dataset import ImageDataset3to1, ImageDataset
+from dataset import ImageDataset3to1, ImageDataset, CSVImageDataset
 from model import Unet
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -13,7 +13,7 @@ from PIL import Image
 
 SAVE_DIR = "predictions3to1"
 os.makedirs(SAVE_DIR, exist_ok=True)
-NUM_INPUTS = 3
+NUM_INPUTS = 1
 MODEL_NAME = "model3to1.pth"
 RUN_NAME = "experiment3to1"
 
@@ -95,7 +95,8 @@ def main(predict_only=False):
     if NUM_INPUTS == 3:
         ds = ImageDataset3to1(os.path.join("gainrangedataset","tir"), os.path.join("gainrangedataset","rgb","*"))
     else:
-        ds = ImageDataset(os.path.join("gainrangedataset","tir", "*_1.png"), os.path.join("gainrangedataset","rgb","*"))
+        #ds = ImageDataset(os.path.join("gainrangedataset","tir", "*_1.png"), os.path.join("gainrangedataset","rgb","*"))
+        ds = CSVImageDataset(os.path.join('fake_therm_set','*.png'), "gainrangedataset/tir.csv", "gainrangedataset/rgb", "gainrangedataset/tir")
     
     training_set, validation_set = torch.utils.data.random_split(ds, [int(len(ds) * 0.7), len(ds) - int(len(ds) * 0.7)])
 

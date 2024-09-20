@@ -4,6 +4,7 @@ from glob import glob
 from PIL import Image
 import torchvision.transforms.functional as TF
 import os
+import dask.dataframe as dd
 
 """
 Custom Image dataset for image-to-image translation using pytorch
@@ -127,3 +128,58 @@ class ImageDataset3to1(Dataset):
     """
     def get_filenames(self, idx, default=None) -> str:
         return self.targets[idx]
+    
+class CSVImageDataset(Dataset):
+    """dataset class for image data"""
+    in_channels = 3
+    out_channels = 3
+
+    def __init__(self, input_globbing_pattern: str, target_path, transform: callable = None) -> None:
+        self.input_globbing_pattern = input_globbing_pattern
+        self.target_path = target_path
+        self.transform = transform
+        
+        self.images = sorted(glob(input_globbing_pattern, recursive=True), key=len)
+        self.targets = self.get_targets_from_csv(target_path)
+        assert len(self.images) == len(self.targets), "Number of images and targets must be equal, is {} and {}".format(len(self.images), len(self.targets))
+
+    """
+    Returns the length of the dataset
+    """
+    def __len__(self) -> int:
+        return len(self.images)
+    
+    """
+    Returns the input and target tensors for the given index, as well as the index of the image in the dataset
+    """
+    def __getitem__(self, idx) -> tuple:
+        input_tensor = Image.open(self.images[idx]).convert("RGB" if self.in_channels == 3 else "L")
+        target_tensor = torch.tensor(self.targets[idx].values)
+
+        # note, implement this for real later
+        if self.transform:
+            input_tensor, target_tensor = self.transform(input_tensor, target_tensor)
+
+        if not isinstance(input_tensor, torch.Tensor):
+            #input_tensor = torch.from_numpy(np.array(input_tensor).astype(np.float32) / 255.0)
+            input_tensor = TF.to_tensor(input_tensor)
+
+
+        if not isinstance(target_tensor, torch.Tensor):
+            #target_tensor = torch.from_numpy(np.array(target_tensor).astype(np.float32) / 255.0)
+            target_tensor = TF.to_tensor(target_tensor)
+
+        return input_tensor, target_tensor, idx
+
+    """
+    Returns the filename of the image at the given index
+    """
+    def get_filenames(self, idx, default=None) -> str:
+        return self.images[idx]
+    
+    def get_targets_from_csv(csv_path):
+        df = dd.read_csv(csv_path,blocksize=1000000).compute()
+
+        # split dataframe into a list of 240 row chunks
+        chunks = [df.iloc[i:i+240] for i in range(0, len(df), 240)]
+        return chunks

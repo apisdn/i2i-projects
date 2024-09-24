@@ -11,11 +11,11 @@ import numpy as np
 import os
 from PIL import Image
 
-SAVE_DIR = "predictions3to1"
+SAVE_DIR = "predictions_th_u"
 os.makedirs(SAVE_DIR, exist_ok=True)
 NUM_INPUTS = 1
-MODEL_NAME = "model3to1.pth"
-RUN_NAME = "experiment3to1"
+MODEL_NAME = "th_u_model.pth"
+RUN_NAME = "th_u_model"
 
 losses = []
 val_losses = []
@@ -60,15 +60,29 @@ def infer(img_dataloader, model):
 
             filename = datas.dataset.get_filenames(imgidx)
 
-            pred = pred.squeeze(0).permute(1, 2, 0).cpu().numpy()
-            pred = (pred * 255).astype("uint8")
+            if NUM_INPUTS == 3:
+                pred = pred.squeeze(0).permute(1, 2, 0).cpu().numpy()
+                pred = (pred * 255).astype("uint8")
+            else:
+                pred = pred.squeeze(0).permute(1, 2, 0).cpu().numpy()
+
+            #shape as (256,256,) instead of (256,256,1)
+            pred = pred[:,:,0]
+
+            # unscale data
+            #pred = datas.dataset.scaler.inverse_transform(pred)
+            pred = pred * (datas.dataset.global_max - datas.dataset.global_min) + datas.dataset.global_min
 
             filename = os.path.basename(filename)
             filename = filename.split(".")[0]
             filename = filename.split("_")[0]
 
-            Image.fromarray(pred).save(os.path.join(SAVE_DIR, filename + "_fake.png"))
-            wandb.log({"Validation Predictions": wandb.Image(os.path.join(SAVE_DIR, filename + "_fake.png"), caption=filename)})
+            if NUM_INPUTS == 3:
+                Image.fromarray(pred).save(os.path.join(SAVE_DIR, filename + "_fake.png"))
+                wandb.log({"Validation Predictions": wandb.Image(os.path.join(SAVE_DIR, filename + "_fake.png"), caption=filename)})
+            else:
+                # this version isn't an image and should be saved as a csv
+                np.savetxt(os.path.join(SAVE_DIR, filename + "_fake.csv"), pred, delimiter=",")
 
 """
 This main takes in a predict_only parameter, which is currently unimplemented
@@ -77,13 +91,13 @@ predict_only: bool, whether to only run the inference part of the code <<unimple
 def main(predict_only=False):
     # parameters
     in_chan = 3
-    out_chan = 3
+    out_chan = 1
     learning_rate = 1e-4#1e-4
     batch_size = 5
     num_epochs = 200
     loss_fn = nn.CrossEntropyLoss()
 
-    run = wandb.init(project="unet-translation-3to1",
+    run = wandb.init(project="unet-translation-thermography",
                      job_type="train",
                      config={"learning_rate": learning_rate, "batch_size": batch_size, "num_epochs": num_epochs},
                      notes="Training a UNet model for image-to-image translation")
@@ -96,7 +110,7 @@ def main(predict_only=False):
         ds = ImageDataset3to1(os.path.join("gainrangedataset","tir"), os.path.join("gainrangedataset","rgb","*"))
     else:
         #ds = ImageDataset(os.path.join("gainrangedataset","tir", "*_1.png"), os.path.join("gainrangedataset","rgb","*"))
-        ds = CSVImageDataset(os.path.join('fake_therm_set','*.png'), "gainrangedataset/tir.csv", "gainrangedataset/rgb", "gainrangedataset/tir")
+        ds = CSVImageDataset(os.path.join('therm11','*.png'), os.path.join('therm11','th_*.csv'))
     
     training_set, validation_set = torch.utils.data.random_split(ds, [int(len(ds) * 0.7), len(ds) - int(len(ds) * 0.7)])
 
@@ -135,8 +149,8 @@ def main(predict_only=False):
 
     pkl.dump(train_loader, open("train_loader.pkl", "wb"))
     pkl.dump(val_loader, open("val_loader.pkl", "wb"))
-    run.save("train_loader.pkl")
-    run.save("val_loader.pkl")
+    #run.save("train_loader.pkl")
+    #run.save("val_loader.pkl")
 
     # and now for the validation set
 

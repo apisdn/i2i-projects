@@ -5,6 +5,7 @@ from PIL import Image
 import torchvision.transforms.functional as TF
 import os
 import dask.dataframe as dd
+import pandas as pd
 
 """
 Custom Image dataset for image-to-image translation using pytorch
@@ -132,16 +133,24 @@ class ImageDataset3to1(Dataset):
 class CSVImageDataset(Dataset):
     """dataset class for image data"""
     in_channels = 3
-    out_channels = 3
+    out_channels = 1
 
-    def __init__(self, input_globbing_pattern: str, target_path, transform: callable = None) -> None:
+    def __init__(self, input_globbing_pattern: str, target_globbing_pattern: str, transform: callable = None) -> None:
         self.input_globbing_pattern = input_globbing_pattern
-        self.target_path = target_path
+        self.target_globbing_pattern = target_globbing_pattern
         self.transform = transform
+
+        #self.scaler = MinMaxScaler()
         
-        self.images = sorted(glob(input_globbing_pattern, recursive=True), key=len)
-        self.targets = self.get_targets_from_csv(target_path)
+        self.images = sorted(glob(input_globbing_pattern, recursive=True))
+        self.targets = sorted(glob(target_globbing_pattern, recursive=True))#self.get_targets_from_csv(target_path)
+
         assert len(self.images) == len(self.targets), "Number of images and targets must be equal, is {} and {}".format(len(self.images), len(self.targets))
+
+        self.global_min = float('inf')
+        self.global_max = float('-inf')
+
+        self.set_global_min_max()
 
     """
     Returns the length of the dataset
@@ -154,7 +163,13 @@ class CSVImageDataset(Dataset):
     """
     def __getitem__(self, idx) -> tuple:
         input_tensor = Image.open(self.images[idx]).convert("RGB" if self.in_channels == 3 else "L")
-        target_tensor = torch.tensor(self.targets[idx].values)
+
+        # read in target from self.targets[idx] csv file
+        target = pd.read_csv(self.targets[idx], header=None, delimiter=' ').iloc[1:, 20:260].values.astype('float32')
+        
+        #target = self.targets[idx].values
+        target = (target - self.global_min) / (self.global_max - self.global_min)
+        target_tensor = torch.tensor(target).unsqueeze(0)
 
         # note, implement this for real later
         if self.transform:
@@ -177,8 +192,31 @@ class CSVImageDataset(Dataset):
     def get_filenames(self, idx, default=None) -> str:
         return self.images[idx]
     
-    def get_targets_from_csv(csv_path):
-        df = dd.read_csv(csv_path,blocksize=1000000).compute()
+    def set_global_min_max(self):
+        for target in self.targets:
+            # extract number from target string (string is in form xxx//th_NUMBER.csv)
+            # start by extracting last part of file path
+            target = os.path.basename(target)
+            idx = int(target.split('.')[0].split('_')[-1])
+
+            target = pd.read_csv(self.targets[idx-1], header=None, delimiter=' ').iloc[1:260, 20:260].values
+            min_val = target.min()
+            max_val = target.max()
+            if min_val < self.global_min:
+                self.global_min = min_val
+            if max_val > self.global_max:
+                self.global_max = max_val
+
+    def get_targets_from_csv(self, csv_path):
+        df = dd.read_csv(csv_path,blocksize=1000000).iloc[:,list(range(20,260))].compute().astype('float32')
+        #df = df.iloc[:, list(range(20, 260))]
+        
+        # Calculate global min and max
+        self.global_min = df.values.min()
+        self.global_max = df.values.max()
+
+        # fit the scaler on all data
+        #elf.scaler.fit(df.values)
 
         # split dataframe into a list of 240 row chunks
         chunks = [df.iloc[i:i+240] for i in range(0, len(df), 240)]

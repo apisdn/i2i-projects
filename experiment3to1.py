@@ -94,7 +94,7 @@ def main(predict_only=False):
     out_chan = 1
     learning_rate = 1e-4#1e-4
     batch_size = 5
-    num_epochs = 200
+    num_epochs = 3
     loss_fn = nn.CrossEntropyLoss()
 
     run = wandb.init(project="unet-translation-thermography",

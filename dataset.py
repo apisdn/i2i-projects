@@ -7,6 +7,10 @@ import os
 import dask.dataframe as dd
 import pandas as pd
 
+KNOWN_MIN = -6.6
+KNOWN_MAX = 101.9
+KNOWN_MIN_MAX = True
+
 """
 Custom Image dataset for image-to-image translation using pytorch
 
@@ -139,11 +143,9 @@ class CSVImageDataset(Dataset):
         self.input_globbing_pattern = input_globbing_pattern
         self.target_globbing_pattern = target_globbing_pattern
         self.transform = transform
-
-        #self.scaler = MinMaxScaler()
         
         self.images = sorted(glob(input_globbing_pattern, recursive=True))
-        self.targets = sorted(glob(target_globbing_pattern, recursive=True))#self.get_targets_from_csv(target_path)
+        self.targets = sorted(glob(target_globbing_pattern, recursive=True))
 
         assert len(self.images) == len(self.targets), "Number of images and targets must be equal, is {} and {}".format(len(self.images), len(self.targets))
 
@@ -193,19 +195,24 @@ class CSVImageDataset(Dataset):
         return self.images[idx]
     
     def set_global_min_max(self):
-        for target in self.targets:
-            # extract number from target string (string is in form xxx//th_NUMBER.csv)
-            # start by extracting last part of file path
-            target = os.path.basename(target)
-            idx = int(target.split('.')[0].split('_')[-1])
+        if KNOWN_MIN_MAX:
+            self.global_min = KNOWN_MIN
+            self.global_max = KNOWN_MAX
+            return
+        else:
+            for target in self.targets:
+                # extract number from target string (string is in form xxx//th_NUMBER.csv)
+                # start by extracting last part of file path
+                target = os.path.basename(target)
+                idx = int(target.split('.')[0].split('_')[-1])
 
-            target = pd.read_csv(self.targets[idx-1], header=None, delimiter=' ').iloc[1:260, 20:260].values
-            min_val = target.min()
-            max_val = target.max()
-            if min_val < self.global_min:
-                self.global_min = min_val
-            if max_val > self.global_max:
-                self.global_max = max_val
+                target = pd.read_csv(self.targets[idx-1], header=None, delimiter=' ').iloc[1:260, 20:260].values
+                min_val = target.min()
+                max_val = target.max()
+                if min_val < self.global_min:
+                    self.global_min = min_val
+                if max_val > self.global_max:
+                    self.global_max = max_val
 
     def get_targets_from_csv(self, csv_path):
         df = dd.read_csv(csv_path,blocksize=1000000).iloc[:,list(range(20,260))].compute().astype('float32')

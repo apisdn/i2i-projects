@@ -94,7 +94,7 @@ def main(predict_only=False):
     out_chan = 1
     learning_rate = 1e-4#1e-4
     batch_size = 5
-    num_epochs = 3
+    num_epochs = 200
     loss_fn = nn.CrossEntropyLoss()
 
     run = wandb.init(project="unet-translation-thermography",
@@ -112,7 +112,8 @@ def main(predict_only=False):
         #ds = ImageDataset(os.path.join("gainrangedataset","tir", "*_1.png"), os.path.join("gainrangedataset","rgb","*"))
         ds = CSVImageDataset(os.path.join('therm11','*.png'), os.path.join('therm11','th_*.csv'))
     
-    training_set, validation_set = torch.utils.data.random_split(ds, [int(len(ds) * 0.7), len(ds) - int(len(ds) * 0.7)])
+    portion = 0.8 # normally 0.7
+    training_set, validation_set = torch.utils.data.random_split(ds, [int(len(ds) * portion), len(ds) - int(len(ds) * portion)])
 
     train_loader = DataLoader(training_set, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(validation_set, batch_size=1, shuffle=False)
@@ -147,7 +148,7 @@ def main(predict_only=False):
     print("Training complete")
     print("Mean validation loss: ", sum(val_losses) / len(val_losses))
 
-    pkl.dump(train_loader, open("train_loader.pkl", "wb"))
+    #pkl.dump(train_loader, open("train_loader.pkl", "wb"))
     pkl.dump(val_loader, open("val_loader.pkl", "wb"))
     #run.save("train_loader.pkl")
     #run.save("val_loader.pkl")

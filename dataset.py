@@ -149,10 +149,10 @@ class CSVImageDataset(Dataset):
 
         assert len(self.images) == len(self.targets), "Number of images and targets must be equal, is {} and {}".format(len(self.images), len(self.targets))
 
-        self.global_min = float('inf')
-        self.global_max = float('-inf')
+        #self.global_min = float('inf')
+        #self.global_max = float('-inf')
 
-        self.set_global_min_max()
+        #self.set_global_min_max()
 
     """
     Returns the length of the dataset
@@ -170,7 +170,7 @@ class CSVImageDataset(Dataset):
         target = pd.read_csv(self.targets[idx], header=None, delimiter=' ').iloc[1:, 20:260].values.astype('float32')
         
         #target = self.targets[idx].values
-        target = (target - self.global_min) / (self.global_max - self.global_min)
+        #target = (target - self.global_min) / (self.global_max - self.global_min)
         target_tensor = torch.tensor(target).unsqueeze(0)
 
         # note, implement this for real later

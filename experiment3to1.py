@@ -71,7 +71,7 @@ def infer(img_dataloader, model):
 
             # unscale data
             #pred = datas.dataset.scaler.inverse_transform(pred)
-            pred = pred * (datas.dataset.global_max - datas.dataset.global_min) + datas.dataset.global_min
+            #pred = pred * (datas.dataset.global_max - datas.dataset.global_min) + datas.dataset.global_min
 
             filename = os.path.basename(filename)
             filename = filename.split(".")[0]
